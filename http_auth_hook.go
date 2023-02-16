@@ -13,14 +13,14 @@ type HTTPAuthHook struct {
 	httpclient     *http.Client
 	aclhost        string
 	clientauthhost string
-	superuserhost  string
+	superuserhost  string // currently unused
 	mqtt.HookBase
 }
 
 type HTTPAuthHookConfig struct {
 	ACLHost                  string
 	SuperUserHost            string
-	ClientAuthenticationHost string
+	ClientAuthenticationHost string // currently unused
 }
 
 func (h *HTTPAuthHook) ID() string {
@@ -63,5 +63,17 @@ func (h *HTTPAuthHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packet)
 }
 
 func (h *HTTPAuthHook) OnACLCheck(cl *mqtt.Client, topic string, write bool) bool {
-	return true
+	req, err := http.NewRequest(http.MethodGet, h.aclhost, http.NoBody)
+	if err != nil {
+		h.Log.Error().Err(err)
+		return false
+	}
+
+	resp, err := h.httpclient.Do(req)
+	if err != nil {
+		h.Log.Error().Err(err)
+		return false
+	}
+
+	return resp.StatusCode >= 200 && resp.StatusCode < 300
 }

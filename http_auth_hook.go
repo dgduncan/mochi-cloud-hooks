@@ -21,6 +21,7 @@ type HTTPAuthHookConfig struct {
 	ACLHost                  string
 	SuperUserHost            string
 	ClientAuthenticationHost string // currently unused
+	RoundTripper             http.RoundTripper
 }
 
 func (h *HTTPAuthHook) ID() string {
@@ -39,6 +40,8 @@ func (h *HTTPAuthHook) Init(config any) error {
 	if !ok {
 		return errors.New("improper config")
 	}
+
+	h.httpclient = NewTransport(authHookConfig.RoundTripper)
 
 	h.aclhost = authHookConfig.ACLHost
 	h.clientauthhost = authHookConfig.ClientAuthenticationHost

@@ -3,6 +3,7 @@ module github.com/dgduncan/mochi-cloud-hooks
 go 1.19
 
 require (
+	github.com/golang/mock v1.6.0
 	github.com/mochi-co/mqtt/v2 v2.2.1
 	github.com/stretchr/testify v1.8.1
 )

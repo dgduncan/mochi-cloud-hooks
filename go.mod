@@ -2,7 +2,7 @@ module github.com/dgduncan/mochi-cloud-hooks
 
 go 1.19
 
-require github.com/mochi-co/mqtt/v2 v2.2.0
+require github.com/mochi-co/mqtt/v2 v2.2.1
 
 require (
 	github.com/gorilla/websocket v1.5.0 // indirect

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -57,13 +58,18 @@ func (h *HTTPAuthHook) Provides(b byte) bool {
 
 func (h *HTTPAuthHook) Init(config any) error {
 	if config == nil {
-		h.Log.Debug().Msg("nil config")
-		return nil
+		return errors.New("nil config")
 	}
 
 	authHookConfig, ok := config.(HTTPAuthHookConfig)
 	if !ok {
 		return errors.New("improper config")
+	}
+
+	fmt.Println(validateConfig(authHookConfig))
+
+	if !validateConfig(authHookConfig) {
+		return errors.New("hostname configs failed validation")
 	}
 
 	h.httpclient = NewTransport(authHookConfig.RoundTripper)
@@ -133,4 +139,11 @@ func (h *HTTPAuthHook) makeRequest(requestType, url string, payload any) (*http.
 	}
 
 	return resp, nil
+}
+
+func validateConfig(config HTTPAuthHookConfig) bool {
+	if config.ACLHost == "" || config.ClientAuthenticationHost == "" {
+		return false
+	}
+	return true
 }

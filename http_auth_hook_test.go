@@ -68,13 +68,18 @@ func TestInit(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:        "Success - nil config",
+			name:        "Failure - nil config",
 			config:      nil,
-			expectError: false,
+			expectError: true,
 		},
 		{
 			name:        "Failure - improper config",
 			config:      "",
+			expectError: true,
+		},
+		{
+			name:        "Failure - hostname validation fail",
+			config:      HTTPAuthHookConfig{},
 			expectError: true,
 		},
 	}
@@ -106,7 +111,9 @@ func TestOnACLCheck(t *testing.T) {
 		{
 			name: "Success - Proper config",
 			config: HTTPAuthHookConfig{
-				RoundTripper: mockRT,
+				RoundTripper:             mockRT,
+				ACLHost:                  "http://aclhost.com",
+				ClientAuthenticationHost: "http://clientauthenticationhost.com",
 			},
 			expectPass: true,
 			mocks: func(ctx context.Context) {
@@ -119,7 +126,9 @@ func TestOnACLCheck(t *testing.T) {
 		{
 			name: "Error - HTTP error",
 			config: HTTPAuthHookConfig{
-				RoundTripper: mockRT,
+				RoundTripper:             mockRT,
+				ACLHost:                  "http://aclhost.com",
+				ClientAuthenticationHost: "http://clientauthenticationhost.com",
 			},
 			expectPass: false,
 			mocks: func(ctx context.Context) {
@@ -129,7 +138,9 @@ func TestOnACLCheck(t *testing.T) {
 		{
 			name: "Error - Non 2xx",
 			config: HTTPAuthHookConfig{
-				RoundTripper: mockRT,
+				RoundTripper:             mockRT,
+				ACLHost:                  "http://aclhost.com",
+				ClientAuthenticationHost: "http://clientauthenticationhost.com",
 			},
 			expectPass: false,
 			mocks: func(ctx context.Context) {
@@ -170,7 +181,9 @@ func TestOnConnectAuthenticate(t *testing.T) {
 		{
 			name: "Success - Proper config",
 			config: HTTPAuthHookConfig{
-				RoundTripper: mockRT,
+				RoundTripper:             mockRT,
+				ACLHost:                  "http://aclhost.com",
+				ClientAuthenticationHost: "http://clientauthenticationhost.com",
 			},
 			expectPass: true,
 			mocks: func(ctx context.Context) {
@@ -183,7 +196,9 @@ func TestOnConnectAuthenticate(t *testing.T) {
 		{
 			name: "Error - HTTP error",
 			config: HTTPAuthHookConfig{
-				RoundTripper: mockRT,
+				RoundTripper:             mockRT,
+				ACLHost:                  "http://aclhost.com",
+				ClientAuthenticationHost: "http://clientauthenticationhost.com",
 			},
 			expectPass: false,
 			mocks: func(ctx context.Context) {
@@ -193,7 +208,9 @@ func TestOnConnectAuthenticate(t *testing.T) {
 		{
 			name: "Error - Non 2xx",
 			config: HTTPAuthHookConfig{
-				RoundTripper: mockRT,
+				RoundTripper:             mockRT,
+				ACLHost:                  "http://aclhost.com",
+				ClientAuthenticationHost: "http://clientauthenticationhost.com",
 			},
 			expectPass: false,
 			mocks: func(ctx context.Context) {

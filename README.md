@@ -12,6 +12,7 @@ Implementations of certain hooks are inspired by other open source projects
 - [Hooks](#hooks)
     - [Auth](#auth)
         - [HTTP](#http-auth)
+        - [GCP Secret Manager](#gcp-secret-manager)
 
 <!-- /MarkdownTOC -->
 

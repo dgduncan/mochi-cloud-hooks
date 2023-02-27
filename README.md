@@ -10,6 +10,8 @@ Implementations of certain hooks are inspired by other open source projects
 <!-- MarkdownTOC -->
 
 - [Hooks](#hooks)
+    - [Messaging](#messaging)
+        - [Pub/Sub](#pubsub)
     - [Auth](#auth)
         - [HTTP](#http-auth)
         - [GCP Secret Manager](#gcp-secret-manager)
@@ -17,6 +19,12 @@ Implementations of certain hooks are inspired by other open source projects
 <!-- /MarkdownTOC -->
 
 ### Hooks
+
+#### Messaging
+
+##### Pub/Sub
+
+TODO
 
 #### Auth
 

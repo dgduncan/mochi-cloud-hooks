@@ -36,7 +36,6 @@ type PublishMessage struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
-// MochiConnectMessage placeholder
 type ConnectMessage struct {
 	ClientID  string    `json:"client_id"`
 	Username  string    `json:"username"`
@@ -44,7 +43,6 @@ type ConnectMessage struct {
 	Connected bool      `json:"connected"`
 }
 
-// MochiSubscribeMessage placeholder
 type SubscribeMessage struct {
 	ClientID   string    `json:"client_id"`
 	Username   string    `json:"username"`

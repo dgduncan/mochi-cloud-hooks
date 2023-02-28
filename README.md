@@ -24,7 +24,8 @@ Implementations of certain hooks are inspired by other open source projects
 
 ##### Pub/Sub
 
-TODO
+The Pub/Sub hook uses GCP Pub/Sub to publish messages to topics for subscribing, publishing, and connecting. An optional disallow list can be passed in that will check if the username responsible for the event should be allowed to publish to the topic. This is done to prevent overloading from admin clients that may be responsible for a large amount of messages, connections, or subscriptions.
+
 
 #### Auth
 

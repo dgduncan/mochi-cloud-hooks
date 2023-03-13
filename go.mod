@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go/pubsub v1.28.0
 	cloud.google.com/go/secretmanager v1.10.0
 	github.com/golang/mock v1.6.0
-	github.com/mochi-co/mqtt/v2 v2.2.4
+	github.com/mochi-co/mqtt/v2 v2.2.6
 	github.com/rs/zerolog v1.29.0
 	github.com/stretchr/testify v1.8.2
 )
@@ -28,11 +28,11 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rs/xid v1.4.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
-	golang.org/x/net v0.0.0-20221014081412-f15817d10f9b // indirect
+	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20221014153046-6fdb5e3db783 // indirect
 	golang.org/x/sync v0.1.0 // indirect
-	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10 // indirect
-	golang.org/x/text v0.4.0 // indirect
+	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/text v0.7.0 // indirect
 	google.golang.org/api v0.103.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20221202195650-67e5cbc046fd // indirect

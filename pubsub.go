@@ -22,12 +22,11 @@ type PubsubMessagingHook struct {
 }
 
 type PubsubMessagingHookConfig struct {
-	ProjectID          string
-	PublishTopicName   string
-	SubscribeTopicName string
-	ConnectTopicName   string
-	WillTopicName      string
-	DisallowList       []string
+	ConnectTopic   *pubsub.Topic
+	PublishTopic   *pubsub.Topic
+	SubscribeTopic *pubsub.Topic
+	WillTopic      *pubsub.Topic
+	DisallowList   []string
 }
 
 type PublishMessage struct {
@@ -75,8 +74,6 @@ func (pmh *PubsubMessagingHook) Provides(b byte) bool {
 }
 
 func (pmh *PubsubMessagingHook) Init(config any) error {
-	ctx := context.Background()
-
 	if config == nil {
 		return errors.New("nil config")
 	}
@@ -86,49 +83,14 @@ func (pmh *PubsubMessagingHook) Init(config any) error {
 		return errors.New("improper config")
 	}
 
-	// Create and configure pubsub client
-	pc, err := pubsub.NewClient(ctx, pubsubMessagingHookConfig.ProjectID)
-	if err != nil {
-		pmh.Log.Err(err).Msg("failed to create pubsub client")
-		return errors.New("failed to create pubsub client")
+	if pmh.disallowlist == nil {
+		return errors.New("nil disallowlist")
 	}
 
-	if pubsubMessagingHookConfig.PublishTopicName != "" {
-		pubslishtopic := pc.Topic(pubsubMessagingHookConfig.PublishTopicName)
-		pubslishtopic.PublishSettings = pubsub.PublishSettings{
-			DelayThreshold: 1 * time.Second,
-			CountThreshold: 10,
-		}
-		pmh.publishTopic = pubslishtopic
-	}
-
-	if pubsubMessagingHookConfig.SubscribeTopicName != "" {
-		subscribetopic := pc.Topic(pubsubMessagingHookConfig.SubscribeTopicName)
-		subscribetopic.PublishSettings = pubsub.PublishSettings{
-			DelayThreshold: 1 * time.Second,
-			CountThreshold: 10,
-		}
-		pmh.subscripeTopic = subscribetopic
-	}
-
-	if pubsubMessagingHookConfig.ConnectTopicName != "" {
-		connecttopic := pc.Topic(pubsubMessagingHookConfig.ConnectTopicName)
-		connecttopic.PublishSettings = pubsub.PublishSettings{
-			DelayThreshold: 1 * time.Second,
-			CountThreshold: 10,
-		}
-		pmh.connectTopic = connecttopic
-	}
-
-	if pubsubMessagingHookConfig.WillTopicName != "" {
-		willTopic := pc.Topic(pubsubMessagingHookConfig.WillTopicName)
-		willTopic.PublishSettings = pubsub.PublishSettings{
-			DelayThreshold: 1 * time.Second,
-			CountThreshold: 10,
-		}
-		pmh.willTopic = willTopic
-	}
-
+	pmh.connectTopic = pubsubMessagingHookConfig.ConnectTopic
+	pmh.publishTopic = pubsubMessagingHookConfig.PublishTopic
+	pmh.subscripeTopic = pubsubMessagingHookConfig.SubscribeTopic
+	pmh.willTopic = pubsubMessagingHookConfig.WillTopic
 	pmh.disallowlist = pubsubMessagingHookConfig.DisallowList
 
 	return nil

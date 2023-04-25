@@ -240,7 +240,7 @@ func (pmh *PubsubMessagingHook) OnWillSent(cl *mqtt.Client, pk packets.Packet) {
 		return
 	}
 
-	if err := publish(pmh.publishTopic, OnWillSentMessage{
+	if err := publish(pmh.willTopic, OnWillSentMessage{
 		ClientID:  cl.ID,
 		Topic:     pk.TopicName,
 		Payload:   pk.Payload,

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"cloud.google.com/go/pubsub"
@@ -194,14 +195,18 @@ func (pmh *PubsubMessagingHook) OnPublished(cl *mqtt.Client, pk packets.Packet) 
 }
 
 func (pmh *PubsubMessagingHook) OnWillSent(cl *mqtt.Client, pk packets.Packet) {
+	fmt.Println("OnWillSent")
 	if pmh.willTopic == nil {
+		fmt.Println("OnWillSent nil topic")
 		return
 	}
 
 	if !pmh.checkAllowed(string(cl.Properties.Username)) {
+		fmt.Println("OnWillSent not allowed")
 		return
 	}
 
+	fmt.Println("OnWillSent published")
 	if err := publish(pmh.willTopic, OnWillSentMessage{
 		ClientID:  cl.ID,
 		Topic:     pk.TopicName,

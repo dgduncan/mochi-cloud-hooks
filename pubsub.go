@@ -83,7 +83,7 @@ func (pmh *PubsubMessagingHook) Init(config any) error {
 		return errors.New("improper config")
 	}
 
-	if pmh.disallowlist == nil {
+	if pubsubMessagingHookConfig.DisallowList == nil {
 		return errors.New("nil disallowlist")
 	}
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"testing"
+	"time"
 
 	gomock "github.com/golang/mock/gomock"
 	"github.com/mochi-co/mqtt/v2"
@@ -12,6 +13,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 )
+
+var defaultClientID = "default_client_id"
 
 func TestID(t *testing.T) {
 	authHook := new(HTTPAuthHook)
@@ -102,11 +105,11 @@ func TestOnACLCheck(t *testing.T) {
 	mockRT := NewMockRoundTripper(ctrl)
 
 	tests := []struct {
-		name   string
-		config any
-		mocks  func(ctx context.Context)
-
-		expectPass bool
+		name           string
+		config         any
+		clientBlockMap map[string]time.Time
+		mocks          func(ctx context.Context)
+		expectPass     bool
 	}{
 		{
 			name: "Success - Proper config",
@@ -114,6 +117,80 @@ func TestOnACLCheck(t *testing.T) {
 				RoundTripper:             mockRT,
 				ACLHost:                  "http://aclhost.com",
 				ClientAuthenticationHost: "http://clientauthenticationhost.com",
+			},
+			expectPass: true,
+			mocks: func(ctx context.Context) {
+				mockRT.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
+					StatusCode: http.StatusOK,
+				}, nil)
+
+			},
+		},
+		{
+			name: "Success - Proper config - Timeout Configured - Not Blocked",
+			config: HTTPAuthHookConfig{
+				RoundTripper:             mockRT,
+				ACLHost:                  "http://aclhost.com",
+				ClientAuthenticationHost: "http://clientauthenticationhost.com",
+				Timeout: TimeoutConfig{
+					TimeoutDuration: 1 * time.Microsecond,
+				},
+			},
+			expectPass: true,
+			mocks: func(ctx context.Context) {
+				mockRT.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
+					StatusCode: http.StatusOK,
+				}, nil)
+
+			},
+		},
+		{
+			name: "Success - Proper config - Timeout Configured - Already Blocked",
+			config: HTTPAuthHookConfig{
+				RoundTripper:             mockRT,
+				ACLHost:                  "http://aclhost.com",
+				ClientAuthenticationHost: "http://clientauthenticationhost.com",
+				Timeout: TimeoutConfig{
+					TimeoutDuration: 1 * time.Microsecond,
+				},
+			},
+			clientBlockMap: map[string]time.Time{
+				"defaultClientID": time.Now().Add(1 * time.Minute),
+			},
+			expectPass: false,
+			mocks: func(ctx context.Context) {
+			},
+		},
+		{
+			name: "Success - Proper config - Timeout Configured - Should Block",
+			config: HTTPAuthHookConfig{
+				RoundTripper:             mockRT,
+				ACLHost:                  "http://aclhost.com",
+				ClientAuthenticationHost: "http://clientauthenticationhost.com",
+				Timeout: TimeoutConfig{
+					TimeoutDuration: 1 * time.Microsecond,
+				},
+			},
+			expectPass: false,
+			mocks: func(ctx context.Context) {
+				mockRT.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
+					StatusCode: http.StatusUnauthorized,
+				}, nil)
+
+			},
+		},
+		{
+			name: "Success - Proper config - Timeout Configured - Should Delete Client From Block Map",
+			config: HTTPAuthHookConfig{
+				RoundTripper:             mockRT,
+				ACLHost:                  "http://aclhost.com",
+				ClientAuthenticationHost: "http://clientauthenticationhost.com",
+				Timeout: TimeoutConfig{
+					TimeoutDuration: 1 * time.Microsecond,
+				},
+			},
+			clientBlockMap: map[string]time.Time{
+				"defaultClientID": time.Now().Add(-1 * time.Hour),
 			},
 			expectPass: true,
 			mocks: func(ctx context.Context) {
@@ -160,7 +237,14 @@ func TestOnACLCheck(t *testing.T) {
 			authHook.Log = &zerolog.Logger{}
 			authHook.Init(tt.config)
 
-			success := authHook.OnACLCheck(&mqtt.Client{}, "/topic", false)
+			if tt.clientBlockMap != nil {
+				authHook.clientBlockMap = tt.clientBlockMap
+			}
+
+			success := authHook.OnACLCheck(&mqtt.Client{
+				ID: "defaultClientID",
+			}, "/topic", false)
+
 			require.Equal(t, tt.expectPass, success)
 		})
 	}

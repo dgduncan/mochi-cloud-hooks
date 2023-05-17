@@ -17,6 +17,7 @@ import (
 type HTTPAuthHook struct {
 	httpclient     *http.Client
 	timeout        TimeoutConfig
+	timeoutEnabled bool
 	timeoutLock    sync.Mutex
 	clientBlockMap map[string]time.Time
 	aclhost        string
@@ -82,6 +83,7 @@ func (h *HTTPAuthHook) Init(config any) error {
 	if (authHookConfig.Timeout != TimeoutConfig{}) {
 		h.timeout = authHookConfig.Timeout
 		h.clientBlockMap = make(map[string]time.Time)
+		h.timeoutEnabled = true
 	}
 	h.httpclient = NewTransport(authHookConfig.RoundTripper)
 
@@ -92,12 +94,9 @@ func (h *HTTPAuthHook) Init(config any) error {
 }
 
 func (h *HTTPAuthHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packet) bool {
-	// check if timeout configured
-	if (h.timeout != TimeoutConfig{}) { // timeout is configured
-		if h.checkIfClientBlocked(cl.ID) {
-
-		}
-
+	// check if client blocked
+	if h.checkIfClientBlocked(cl.ID) {
+		return false
 	}
 
 	payload := ClientCheckPOST{
@@ -112,11 +111,20 @@ func (h *HTTPAuthHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packet)
 		return false
 	}
 
+	// Block on proper 4xx response
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		h.blockClient(cl.ID)
+		return false
+	}
+
 	return resp.StatusCode >= 200 && resp.StatusCode < 300
 }
 
 func (h *HTTPAuthHook) OnACLCheck(cl *mqtt.Client, topic string, write bool) bool {
-	// check timeout
+	// check if client blocked
+	if h.checkIfClientBlocked(cl.ID) {
+		return false
+	}
 
 	payload := ACLCheckPOST{
 		ClientID: cl.ID,
@@ -128,6 +136,11 @@ func (h *HTTPAuthHook) OnACLCheck(cl *mqtt.Client, topic string, write bool) boo
 	resp, err := h.makeRequest(http.MethodPost, h.aclhost, payload)
 	if err != nil {
 		h.Log.Error().Err(err)
+		return false
+	}
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		h.blockClient(cl.ID)
 		return false
 	}
 
@@ -163,6 +176,11 @@ func (h *HTTPAuthHook) makeRequest(requestType, url string, payload any) (*http.
 }
 
 func (h *HTTPAuthHook) checkIfClientBlocked(client string) bool {
+	// Exit early if timeout was not configured and thusly client block map has not been created
+	if !h.timeoutEnabled {
+		return false
+	}
+
 	h.timeoutLock.Lock()
 	defer h.timeoutLock.Unlock()
 

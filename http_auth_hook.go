@@ -17,7 +17,6 @@ import (
 type HTTPAuthHook struct {
 	httpclient     *http.Client
 	timeout        TimeoutConfig
-	timeoutEnabled bool
 	timeoutLock    sync.Mutex
 	clientBlockMap map[string]time.Time
 	aclhost        string
@@ -83,7 +82,6 @@ func (h *HTTPAuthHook) Init(config any) error {
 	if (authHookConfig.Timeout != TimeoutConfig{}) {
 		h.timeout = authHookConfig.Timeout
 		h.clientBlockMap = make(map[string]time.Time)
-		h.timeoutEnabled = true
 	}
 	h.httpclient = NewTransport(authHookConfig.RoundTripper)
 
@@ -177,7 +175,7 @@ func (h *HTTPAuthHook) makeRequest(requestType, url string, payload any) (*http.
 
 func (h *HTTPAuthHook) checkIfClientBlocked(client string) bool {
 	// Exit early if timeout was not configured and thusly client block map has not been created
-	if !h.timeoutEnabled {
+	if (h.timeout == TimeoutConfig{}) {
 		return false
 	}
 
@@ -195,6 +193,11 @@ func (h *HTTPAuthHook) checkIfClientBlocked(client string) bool {
 }
 
 func (h *HTTPAuthHook) blockClient(client string) {
+	// Exit early if timeout was not configured and thusly client block map has not been created
+	if (h.timeout == TimeoutConfig{}) {
+		return
+	}
+
 	h.timeoutLock.Lock()
 	defer h.timeoutLock.Unlock()
 

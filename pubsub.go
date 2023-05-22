@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
 	"cloud.google.com/go/pubsub"
@@ -14,20 +13,33 @@ import (
 )
 
 type PubsubMessagingHook struct {
-	connectTopic   *pubsub.Topic
-	publishTopic   *pubsub.Topic
-	subscripeTopic *pubsub.Topic
-	willTopic      *pubsub.Topic
-	disallowlist   []string
+	onStartedTopic            *pubsub.Topic
+	onStoppedTopic            *pubsub.Topic
+	connectTopic              *pubsub.Topic
+	onSessionEstablishedTopic *pubsub.Topic
+	publishTopic              *pubsub.Topic
+	subscripeTopic            *pubsub.Topic
+	willTopic                 *pubsub.Topic
+	disallowlist              []string
 	mqtt.HookBase
 }
 
 type PubsubMessagingHookConfig struct {
-	ConnectTopic   *pubsub.Topic
-	PublishTopic   *pubsub.Topic
-	SubscribeTopic *pubsub.Topic
-	WillTopic      *pubsub.Topic
-	DisallowList   []string
+	OnStartedTopic            *pubsub.Topic
+	OnStoppedTopic            *pubsub.Topic
+	ConnectTopic              *pubsub.Topic
+	OnSessionEstablishedTopic *pubsub.Topic
+	PublishTopic              *pubsub.Topic
+	SubscribeTopic            *pubsub.Topic
+	WillTopic                 *pubsub.Topic
+	DisallowList              []string
+}
+
+type OnStartedMessage struct {
+	Timestamp time.Time
+}
+type OnStoppedMessage struct {
+	Timestamp time.Time
 }
 
 type PublishMessage struct {
@@ -38,6 +50,13 @@ type PublishMessage struct {
 }
 
 type ConnectMessage struct {
+	ClientID  string    `json:"client_id"`
+	Username  string    `json:"username"`
+	Timestamp time.Time `json:"timestamp"`
+	Connected bool      `json:"connected"`
+}
+
+type OnSessionEstablishedMessage struct {
 	ClientID  string    `json:"client_id"`
 	Username  string    `json:"username"`
 	Timestamp time.Time `json:"timestamp"`
@@ -65,8 +84,11 @@ func (pmh *PubsubMessagingHook) ID() string {
 
 func (pmh *PubsubMessagingHook) Provides(b byte) bool {
 	return bytes.Contains([]byte{
+		mqtt.OnStarted,
+		mqtt.OnStopped,
 		mqtt.OnConnect,
 		mqtt.OnDisconnect,
+		mqtt.OnSessionEstablished,
 		mqtt.OnPublished,
 		mqtt.OnSubscribed,
 		mqtt.OnUnsubscribed,
@@ -88,13 +110,40 @@ func (pmh *PubsubMessagingHook) Init(config any) error {
 		return errors.New("nil disallowlist")
 	}
 
+	pmh.onStartedTopic = pubsubMessagingHookConfig.OnStartedTopic
+	pmh.onStoppedTopic = pubsubMessagingHookConfig.OnStoppedTopic
 	pmh.connectTopic = pubsubMessagingHookConfig.ConnectTopic
+	pmh.onSessionEstablishedTopic = pubsubMessagingHookConfig.OnSessionEstablishedTopic
 	pmh.publishTopic = pubsubMessagingHookConfig.PublishTopic
 	pmh.subscripeTopic = pubsubMessagingHookConfig.SubscribeTopic
 	pmh.willTopic = pubsubMessagingHookConfig.WillTopic
 	pmh.disallowlist = pubsubMessagingHookConfig.DisallowList
 
 	return nil
+}
+
+func (pmh *PubsubMessagingHook) OnStarted() {
+	if pmh.onStartedTopic == nil {
+		return
+	}
+
+	if err := publish(pmh.onStartedTopic, OnStartedMessage{
+		Timestamp: time.Now(),
+	}); err != nil {
+		pmh.Log.Err(err).Msg("")
+	}
+}
+
+func (pmh *PubsubMessagingHook) OnStopped() {
+	if pmh.onStoppedTopic == nil {
+		return
+	}
+
+	if err := publish(pmh.onStoppedTopic, OnStoppedMessage{
+		Timestamp: time.Now(),
+	}); err != nil {
+		pmh.Log.Err(err).Msg("")
+	}
 }
 
 func (pmh *PubsubMessagingHook) OnUnsubscribed(cl *mqtt.Client, pk packets.Packet) {
@@ -156,6 +205,25 @@ func (pmh *PubsubMessagingHook) OnConnect(cl *mqtt.Client, pk packets.Packet) {
 	}
 }
 
+func (pmh *PubsubMessagingHook) OnSessionEstablished(cl *mqtt.Client, pk packets.Packet) {
+	if pmh.connectTopic == nil {
+		return
+	}
+
+	if !pmh.checkAllowed(string(cl.Properties.Username)) {
+		return
+	}
+
+	if err := publish(pmh.onSessionEstablishedTopic, OnSessionEstablishedMessage{
+		ClientID:  cl.ID,
+		Username:  string(cl.Properties.Username),
+		Timestamp: time.Now(),
+		Connected: true,
+	}); err != nil {
+		pmh.Log.Err(err).Msg("")
+	}
+}
+
 func (pmh *PubsubMessagingHook) OnDisconnect(cl *mqtt.Client, connect_err error, expire bool) {
 	if pmh.connectTopic == nil {
 		return
@@ -195,18 +263,14 @@ func (pmh *PubsubMessagingHook) OnPublished(cl *mqtt.Client, pk packets.Packet) 
 }
 
 func (pmh *PubsubMessagingHook) OnWillSent(cl *mqtt.Client, pk packets.Packet) {
-	fmt.Println("OnWillSent")
 	if pmh.willTopic == nil {
-		fmt.Println("OnWillSent nil topic")
 		return
 	}
 
 	if !pmh.checkAllowed(string(cl.Properties.Username)) {
-		fmt.Println("OnWillSent not allowed")
 		return
 	}
 
-	fmt.Println("OnWillSent published")
 	if err := publish(pmh.willTopic, OnWillSentMessage{
 		ClientID:  cl.ID,
 		Topic:     pk.TopicName,

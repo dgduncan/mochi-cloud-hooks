@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/mochi-co/mqtt/v2"
 	"github.com/mochi-co/mqtt/v2/packets"
@@ -15,6 +16,9 @@ import (
 
 type HTTPAuthHook struct {
 	httpclient     *http.Client
+	timeout        TimeoutConfig
+	timeoutLock    sync.Mutex
+	clientBlockMap map[string]time.Time
 	aclhost        string
 	clientauthhost string
 	superuserhost  string // currently unused
@@ -22,6 +26,7 @@ type HTTPAuthHook struct {
 }
 
 type HTTPAuthHookConfig struct {
+	Timeout                  TimeoutConfig
 	ACLHost                  string
 	SuperUserHost            string
 	ClientAuthenticationHost string // currently unused
@@ -45,6 +50,10 @@ type ACLCheckPOST struct {
 	ACC      string `json:"acc"`
 }
 
+type TimeoutConfig struct {
+	TimeoutDuration time.Duration
+}
+
 func (h *HTTPAuthHook) ID() string {
 	return "http-auth-hook"
 }
@@ -66,12 +75,14 @@ func (h *HTTPAuthHook) Init(config any) error {
 		return errors.New("improper config")
 	}
 
-	fmt.Println(validateConfig(authHookConfig))
-
 	if !validateConfig(authHookConfig) {
 		return errors.New("hostname configs failed validation")
 	}
 
+	if (authHookConfig.Timeout != TimeoutConfig{}) {
+		h.timeout = authHookConfig.Timeout
+		h.clientBlockMap = make(map[string]time.Time)
+	}
 	h.httpclient = NewTransport(authHookConfig.RoundTripper)
 
 	h.aclhost = authHookConfig.ACLHost
@@ -81,6 +92,11 @@ func (h *HTTPAuthHook) Init(config any) error {
 }
 
 func (h *HTTPAuthHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packet) bool {
+	// check if client blocked
+	if h.checkIfClientBlocked(cl.ID) {
+		return false
+	}
+
 	payload := ClientCheckPOST{
 		ClientID: cl.ID,
 		Password: string(pk.Connect.Password),
@@ -93,10 +109,21 @@ func (h *HTTPAuthHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packet)
 		return false
 	}
 
+	// Block on proper 4xx response
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		h.blockClient(cl.ID)
+		return false
+	}
+
 	return resp.StatusCode >= 200 && resp.StatusCode < 300
 }
 
 func (h *HTTPAuthHook) OnACLCheck(cl *mqtt.Client, topic string, write bool) bool {
+	// check if client blocked
+	if h.checkIfClientBlocked(cl.ID) {
+		return false
+	}
+
 	payload := ACLCheckPOST{
 		ClientID: cl.ID,
 		Username: string(cl.Properties.Username),
@@ -107,6 +134,11 @@ func (h *HTTPAuthHook) OnACLCheck(cl *mqtt.Client, topic string, write bool) boo
 	resp, err := h.makeRequest(http.MethodPost, h.aclhost, payload)
 	if err != nil {
 		h.Log.Error().Err(err)
+		return false
+	}
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		h.blockClient(cl.ID)
 		return false
 	}
 
@@ -139,6 +171,37 @@ func (h *HTTPAuthHook) makeRequest(requestType, url string, payload any) (*http.
 	}
 
 	return resp, nil
+}
+
+func (h *HTTPAuthHook) checkIfClientBlocked(client string) bool {
+	// Exit early if timeout was not configured and thusly client block map has not been created
+	if (h.timeout == TimeoutConfig{}) {
+		return false
+	}
+
+	h.timeoutLock.Lock()
+	defer h.timeoutLock.Unlock()
+
+	if v, ok := h.clientBlockMap[client]; ok {
+		if time.Now().Before(v) {
+			return true
+		}
+		delete(h.clientBlockMap, client)
+	}
+
+	return false
+}
+
+func (h *HTTPAuthHook) blockClient(client string) {
+	// Exit early if timeout was not configured and thusly client block map has not been created
+	if (h.timeout == TimeoutConfig{}) {
+		return
+	}
+
+	h.timeoutLock.Lock()
+	defer h.timeoutLock.Unlock()
+
+	h.clientBlockMap[client] = time.Now().Add(h.timeout.TimeoutDuration)
 }
 
 func validateConfig(config HTTPAuthHookConfig) bool {

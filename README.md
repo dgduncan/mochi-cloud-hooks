@@ -20,10 +20,8 @@ Implementations of certain hooks are inspired by other open source projects
 <!-- /MarkdownTOC -->
 
 ### Hooks
-<br />
 
 #### Auth
-<br />
 
 ##### HTTP
 

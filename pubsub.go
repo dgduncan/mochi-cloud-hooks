@@ -15,11 +15,13 @@ import (
 type PubsubMessagingHook struct {
 	onStartedTopic            *pubsub.Topic
 	onStoppedTopic            *pubsub.Topic
-	connectTopic              *pubsub.Topic
+	onConnectTopic            *pubsub.Topic
+	onDisconnectTopic         *pubsub.Topic
 	onSessionEstablishedTopic *pubsub.Topic
-	publishTopic              *pubsub.Topic
-	subscripeTopic            *pubsub.Topic
-	willTopic                 *pubsub.Topic
+	onPublishedTopic          *pubsub.Topic
+	onSubscribedTopic         *pubsub.Topic
+	onUnsubscribedTopic       *pubsub.Topic
+	onWillSentTopic           *pubsub.Topic
 	disallowlist              []string
 	mqtt.HookBase
 }
@@ -27,11 +29,13 @@ type PubsubMessagingHook struct {
 type PubsubMessagingHookConfig struct {
 	OnStartedTopic            *pubsub.Topic
 	OnStoppedTopic            *pubsub.Topic
-	ConnectTopic              *pubsub.Topic
+	OnConnectTopic            *pubsub.Topic
+	OnDisconnectTopic         *pubsub.Topic
 	OnSessionEstablishedTopic *pubsub.Topic
-	PublishTopic              *pubsub.Topic
-	SubscribeTopic            *pubsub.Topic
-	WillTopic                 *pubsub.Topic
+	OnPublishedTopic          *pubsub.Topic
+	OnSubscribedTopic         *pubsub.Topic
+	OnUnubscribedTopic        *pubsub.Topic
+	OnWillSentTopic           *pubsub.Topic
 	DisallowList              []string
 }
 
@@ -42,14 +46,21 @@ type OnStoppedMessage struct {
 	Timestamp time.Time
 }
 
-type PublishMessage struct {
+type OnPublishedMessage struct {
 	ClientID  string    `json:"client_id"`
 	Topic     string    `json:"topic"`
 	Payload   []byte    `json:"payload"`
 	Timestamp time.Time `json:"timestamp"`
 }
 
-type ConnectMessage struct {
+type OnConnectMessage struct {
+	ClientID  string    `json:"client_id"`
+	Username  string    `json:"username"`
+	Timestamp time.Time `json:"timestamp"`
+	Connected bool      `json:"connected"`
+}
+
+type OnDisconnectMessage struct {
 	ClientID  string    `json:"client_id"`
 	Username  string    `json:"username"`
 	Timestamp time.Time `json:"timestamp"`
@@ -63,7 +74,15 @@ type OnSessionEstablishedMessage struct {
 	Connected bool      `json:"connected"`
 }
 
-type SubscribeMessage struct {
+type OnSubscribedMessage struct {
+	ClientID   string    `json:"client_id"`
+	Username   string    `json:"username"`
+	Topic      string    `json:"topic"`
+	Subscribed bool      `json:"subscribed"`
+	Timestamp  time.Time `json:"timestamp"`
+}
+
+type OnUnsubscribedMessage struct {
 	ClientID   string    `json:"client_id"`
 	Username   string    `json:"username"`
 	Topic      string    `json:"topic"`
@@ -101,23 +120,25 @@ func (pmh *PubsubMessagingHook) Init(config any) error {
 		return errors.New("nil config")
 	}
 
-	pubsubMessagingHookConfig, ok := config.(PubsubMessagingHookConfig)
+	pmhc, ok := config.(PubsubMessagingHookConfig)
 	if !ok {
 		return errors.New("improper config")
 	}
 
-	if pubsubMessagingHookConfig.DisallowList == nil {
+	if pmhc.DisallowList == nil {
 		return errors.New("nil disallowlist")
 	}
 
-	pmh.onStartedTopic = pubsubMessagingHookConfig.OnStartedTopic
-	pmh.onStoppedTopic = pubsubMessagingHookConfig.OnStoppedTopic
-	pmh.connectTopic = pubsubMessagingHookConfig.ConnectTopic
-	pmh.onSessionEstablishedTopic = pubsubMessagingHookConfig.OnSessionEstablishedTopic
-	pmh.publishTopic = pubsubMessagingHookConfig.PublishTopic
-	pmh.subscripeTopic = pubsubMessagingHookConfig.SubscribeTopic
-	pmh.willTopic = pubsubMessagingHookConfig.WillTopic
-	pmh.disallowlist = pubsubMessagingHookConfig.DisallowList
+	pmh.onStartedTopic = pmhc.OnStartedTopic
+	pmh.onStoppedTopic = pmhc.OnStoppedTopic
+	pmh.onConnectTopic = pmhc.OnConnectTopic
+	pmh.onDisconnectTopic = pmhc.OnDisconnectTopic
+	pmh.onSessionEstablishedTopic = pmhc.OnSessionEstablishedTopic
+	pmh.onPublishedTopic = pmhc.OnPublishedTopic
+	pmh.onSubscribedTopic = pmhc.OnSubscribedTopic
+	pmh.onUnsubscribedTopic = pmhc.OnUnubscribedTopic
+	pmh.onWillSentTopic = pmhc.OnWillSentTopic
+	pmh.disallowlist = pmhc.DisallowList
 
 	return nil
 }
@@ -147,7 +168,7 @@ func (pmh *PubsubMessagingHook) OnStopped() {
 }
 
 func (pmh *PubsubMessagingHook) OnUnsubscribed(cl *mqtt.Client, pk packets.Packet) {
-	if pmh.subscripeTopic == nil {
+	if pmh.onUnsubscribedTopic == nil {
 		return
 	}
 
@@ -155,7 +176,7 @@ func (pmh *PubsubMessagingHook) OnUnsubscribed(cl *mqtt.Client, pk packets.Packe
 		return
 	}
 
-	if err := publish(pmh.subscripeTopic, SubscribeMessage{
+	if err := publish(pmh.onUnsubscribedTopic, OnSubscribedMessage{
 		ClientID:   cl.ID,
 		Username:   string(cl.Properties.Username),
 		Timestamp:  time.Now(),
@@ -167,7 +188,7 @@ func (pmh *PubsubMessagingHook) OnUnsubscribed(cl *mqtt.Client, pk packets.Packe
 }
 
 func (pmh *PubsubMessagingHook) OnSubscribed(cl *mqtt.Client, pk packets.Packet, reasonCodes []byte) {
-	if pmh.subscripeTopic == nil {
+	if pmh.onSubscribedTopic == nil {
 		return
 	}
 
@@ -175,7 +196,7 @@ func (pmh *PubsubMessagingHook) OnSubscribed(cl *mqtt.Client, pk packets.Packet,
 		return
 	}
 
-	if err := publish(pmh.subscripeTopic, SubscribeMessage{
+	if err := publish(pmh.onSubscribedTopic, OnSubscribedMessage{
 		ClientID:   cl.ID,
 		Username:   string(cl.Properties.Username),
 		Timestamp:  time.Now(),
@@ -187,7 +208,7 @@ func (pmh *PubsubMessagingHook) OnSubscribed(cl *mqtt.Client, pk packets.Packet,
 }
 
 func (pmh *PubsubMessagingHook) OnConnect(cl *mqtt.Client, pk packets.Packet) {
-	if pmh.connectTopic == nil {
+	if pmh.onConnectTopic == nil {
 		return
 	}
 
@@ -195,7 +216,7 @@ func (pmh *PubsubMessagingHook) OnConnect(cl *mqtt.Client, pk packets.Packet) {
 		return
 	}
 
-	if err := publish(pmh.connectTopic, ConnectMessage{
+	if err := publish(pmh.onConnectTopic, OnConnectMessage{
 		ClientID:  cl.ID,
 		Username:  string(cl.Properties.Username),
 		Timestamp: time.Now(),
@@ -206,7 +227,7 @@ func (pmh *PubsubMessagingHook) OnConnect(cl *mqtt.Client, pk packets.Packet) {
 }
 
 func (pmh *PubsubMessagingHook) OnSessionEstablished(cl *mqtt.Client, pk packets.Packet) {
-	if pmh.connectTopic == nil {
+	if pmh.onSessionEstablishedTopic == nil {
 		return
 	}
 
@@ -225,7 +246,7 @@ func (pmh *PubsubMessagingHook) OnSessionEstablished(cl *mqtt.Client, pk packets
 }
 
 func (pmh *PubsubMessagingHook) OnDisconnect(cl *mqtt.Client, connect_err error, expire bool) {
-	if pmh.connectTopic == nil {
+	if pmh.onDisconnectTopic == nil {
 		return
 	}
 
@@ -233,7 +254,7 @@ func (pmh *PubsubMessagingHook) OnDisconnect(cl *mqtt.Client, connect_err error,
 		return
 	}
 
-	if err := publish(pmh.connectTopic, ConnectMessage{
+	if err := publish(pmh.onDisconnectTopic, OnDisconnectMessage{
 		ClientID:  cl.ID,
 		Username:  string(cl.Properties.Username),
 		Timestamp: time.Now(),
@@ -244,7 +265,7 @@ func (pmh *PubsubMessagingHook) OnDisconnect(cl *mqtt.Client, connect_err error,
 }
 
 func (pmh *PubsubMessagingHook) OnPublished(cl *mqtt.Client, pk packets.Packet) {
-	if pmh.publishTopic == nil {
+	if pmh.onPublishedTopic == nil {
 		return
 	}
 
@@ -252,7 +273,7 @@ func (pmh *PubsubMessagingHook) OnPublished(cl *mqtt.Client, pk packets.Packet) 
 		return
 	}
 
-	if err := publish(pmh.publishTopic, PublishMessage{
+	if err := publish(pmh.onPublishedTopic, OnPublishedMessage{
 		ClientID:  cl.ID,
 		Topic:     pk.TopicName,
 		Payload:   pk.Payload,
@@ -263,7 +284,7 @@ func (pmh *PubsubMessagingHook) OnPublished(cl *mqtt.Client, pk packets.Packet) 
 }
 
 func (pmh *PubsubMessagingHook) OnWillSent(cl *mqtt.Client, pk packets.Packet) {
-	if pmh.willTopic == nil {
+	if pmh.onWillSentTopic == nil {
 		return
 	}
 
@@ -271,7 +292,7 @@ func (pmh *PubsubMessagingHook) OnWillSent(cl *mqtt.Client, pk packets.Packet) {
 		return
 	}
 
-	if err := publish(pmh.willTopic, OnWillSentMessage{
+	if err := publish(pmh.onWillSentTopic, OnWillSentMessage{
 		ClientID:  cl.ID,
 		Topic:     pk.TopicName,
 		Payload:   pk.Payload,

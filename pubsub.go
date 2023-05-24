@@ -57,14 +57,12 @@ type OnConnectMessage struct {
 	ClientID  string    `json:"client_id"`
 	Username  string    `json:"username"`
 	Timestamp time.Time `json:"timestamp"`
-	Connected bool      `json:"connected"`
 }
 
 type OnDisconnectMessage struct {
 	ClientID  string    `json:"client_id"`
 	Username  string    `json:"username"`
 	Timestamp time.Time `json:"timestamp"`
-	Connected bool      `json:"connected"`
 }
 
 type OnSessionEstablishedMessage struct {
@@ -220,7 +218,6 @@ func (pmh *PubsubMessagingHook) OnConnect(cl *mqtt.Client, pk packets.Packet) {
 		ClientID:  cl.ID,
 		Username:  string(cl.Properties.Username),
 		Timestamp: time.Now(),
-		Connected: true,
 	}); err != nil {
 		pmh.Log.Err(err).Msg("")
 	}
@@ -258,7 +255,6 @@ func (pmh *PubsubMessagingHook) OnDisconnect(cl *mqtt.Client, connect_err error,
 		ClientID:  cl.ID,
 		Username:  string(cl.Properties.Username),
 		Timestamp: time.Now(),
-		Connected: false,
 	}); err != nil {
 		pmh.Log.Err(err).Msg("")
 	}

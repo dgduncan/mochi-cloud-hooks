@@ -205,13 +205,13 @@ func (pmh *PubsubMessagingHook) OnSubscribed(cl *mqtt.Client, pk packets.Packet,
 	}
 }
 
-func (pmh *PubsubMessagingHook) OnConnect(cl *mqtt.Client, pk packets.Packet) {
+func (pmh *PubsubMessagingHook) OnConnect(cl *mqtt.Client, pk packets.Packet) error {
 	if pmh.onConnectTopic == nil {
-		return
+		return nil
 	}
 
 	if !pmh.checkAllowed(string(cl.Properties.Username)) {
-		return
+		return nil
 	}
 
 	if err := publish(pmh.onConnectTopic, OnConnectMessage{
@@ -221,6 +221,8 @@ func (pmh *PubsubMessagingHook) OnConnect(cl *mqtt.Client, pk packets.Packet) {
 	}); err != nil {
 		pmh.Log.Err(err).Msg("")
 	}
+
+	return nil
 }
 
 func (pmh *PubsubMessagingHook) OnSessionEstablished(cl *mqtt.Client, pk packets.Packet) {

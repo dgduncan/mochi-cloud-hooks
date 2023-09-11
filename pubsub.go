@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"cloud.google.com/go/pubsub"
-	"github.com/mochi-co/mqtt/v2"
-	"github.com/mochi-co/mqtt/v2/packets"
+	mqtt "github.com/mochi-mqtt/server/v2"
+	"github.com/mochi-mqtt/server/v2/packets"
 )
 
 type PubsubMessagingHook struct {
@@ -149,7 +149,7 @@ func (pmh *PubsubMessagingHook) OnStarted() {
 	if err := publish(pmh.onStartedTopic, OnStartedMessage{
 		Timestamp: time.Now(),
 	}); err != nil {
-		pmh.Log.Err(err).Msg("")
+		pmh.Log.Error("", err)
 	}
 }
 
@@ -161,7 +161,7 @@ func (pmh *PubsubMessagingHook) OnStopped() {
 	if err := publish(pmh.onStoppedTopic, OnStoppedMessage{
 		Timestamp: time.Now(),
 	}); err != nil {
-		pmh.Log.Err(err).Msg("")
+		pmh.Log.Error("", err)
 	}
 }
 
@@ -181,7 +181,7 @@ func (pmh *PubsubMessagingHook) OnUnsubscribed(cl *mqtt.Client, pk packets.Packe
 		Subscribed: false,
 		Topic:      pk.TopicName,
 	}); err != nil {
-		pmh.Log.Err(err).Msg("")
+		pmh.Log.Error("", err)
 	}
 }
 
@@ -201,7 +201,7 @@ func (pmh *PubsubMessagingHook) OnSubscribed(cl *mqtt.Client, pk packets.Packet,
 		Subscribed: true,
 		Topic:      pk.TopicName,
 	}); err != nil {
-		pmh.Log.Err(err).Msg("")
+		pmh.Log.Error("", err)
 	}
 }
 
@@ -219,7 +219,7 @@ func (pmh *PubsubMessagingHook) OnConnect(cl *mqtt.Client, pk packets.Packet) er
 		Username:  string(cl.Properties.Username),
 		Timestamp: time.Now(),
 	}); err != nil {
-		pmh.Log.Err(err).Msg("")
+		pmh.Log.Error("", err)
 	}
 
 	return nil
@@ -240,7 +240,7 @@ func (pmh *PubsubMessagingHook) OnSessionEstablished(cl *mqtt.Client, pk packets
 		Timestamp: time.Now(),
 		Connected: true,
 	}); err != nil {
-		pmh.Log.Err(err).Msg("")
+		pmh.Log.Error("", err)
 	}
 }
 
@@ -258,7 +258,7 @@ func (pmh *PubsubMessagingHook) OnDisconnect(cl *mqtt.Client, connect_err error,
 		Username:  string(cl.Properties.Username),
 		Timestamp: time.Now(),
 	}); err != nil {
-		pmh.Log.Err(err).Msg("")
+		pmh.Log.Error("", err)
 	}
 }
 
@@ -277,7 +277,7 @@ func (pmh *PubsubMessagingHook) OnPublished(cl *mqtt.Client, pk packets.Packet) 
 		Payload:   pk.Payload,
 		Timestamp: time.Now(),
 	}); err != nil {
-		pmh.Log.Err(err).Msg("")
+		pmh.Log.Error("", err)
 	}
 }
 
@@ -296,7 +296,7 @@ func (pmh *PubsubMessagingHook) OnWillSent(cl *mqtt.Client, pk packets.Packet) {
 		Payload:   pk.Payload,
 		Timestamp: time.Now(),
 	}); err != nil {
-		pmh.Log.Err(err).Msg("")
+		pmh.Log.Error("", err)
 	}
 }
 

@@ -3,14 +3,14 @@ package mochicloudhooks
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"testing"
 	"time"
 
 	gomock "github.com/golang/mock/gomock"
-	"github.com/mochi-co/mqtt/v2"
-	"github.com/mochi-co/mqtt/v2/packets"
-	"github.com/rs/zerolog"
+	mqtt "github.com/mochi-mqtt/server/v2"
+	"github.com/mochi-mqtt/server/v2/packets"
 	"github.com/stretchr/testify/require"
 )
 
@@ -58,7 +58,7 @@ func TestProvides(t *testing.T) {
 
 func TestInit(t *testing.T) {
 	authHook := new(HTTPAuthHook)
-	authHook.Log = &zerolog.Logger{}
+	authHook.Log = &slog.Logger{}
 
 	tests := []struct {
 		name        string
@@ -234,7 +234,7 @@ func TestOnACLCheck(t *testing.T) {
 			tt.mocks(ctx)
 
 			authHook := new(HTTPAuthHook)
-			authHook.Log = &zerolog.Logger{}
+			authHook.Log = &slog.Logger{}
 			authHook.Init(tt.config)
 
 			if tt.clientBlockMap != nil {
@@ -385,7 +385,7 @@ func TestOnConnectAuthenticate(t *testing.T) {
 			tt.mocks(ctx)
 
 			authHook := new(HTTPAuthHook)
-			authHook.Log = &zerolog.Logger{}
+			authHook.Log = &slog.Logger{}
 			authHook.Init(tt.config)
 
 			if tt.clientBlockMap != nil {

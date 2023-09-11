@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mochi-co/mqtt/v2"
-	"github.com/mochi-co/mqtt/v2/packets"
+	mqtt "github.com/mochi-mqtt/server/v2"
+	"github.com/mochi-mqtt/server/v2/packets"
 )
 
 type HTTPAuthHook struct {
@@ -105,7 +105,7 @@ func (h *HTTPAuthHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packet)
 
 	resp, err := h.makeRequest(http.MethodPost, h.clientauthhost, payload)
 	if err != nil {
-		h.Log.Error().Err(err)
+		h.Log.Error("", err)
 		return false
 	}
 
@@ -133,7 +133,7 @@ func (h *HTTPAuthHook) OnACLCheck(cl *mqtt.Client, topic string, write bool) boo
 
 	resp, err := h.makeRequest(http.MethodPost, h.aclhost, payload)
 	if err != nil {
-		h.Log.Error().Err(err)
+		h.Log.Error("", err)
 		return false
 	}
 
@@ -152,7 +152,7 @@ func (h *HTTPAuthHook) makeRequest(requestType, url string, payload any) (*http.
 	} else {
 		rb, err := json.Marshal(payload)
 		if err != nil {
-			h.Log.Err(err).Msg("")
+			h.Log.Error("", err)
 			return nil, err
 		}
 		buffer = bytes.NewBuffer(rb)
@@ -160,13 +160,13 @@ func (h *HTTPAuthHook) makeRequest(requestType, url string, payload any) (*http.
 
 	req, err := http.NewRequest(requestType, url, buffer)
 	if err != nil {
-		h.Log.Error().Err(err)
+		h.Log.Error("", err)
 		return nil, err
 	}
 
 	resp, err := h.httpclient.Do(req)
 	if err != nil {
-		h.Log.Error().Err(err)
+		h.Log.Error("", err)
 		return nil, err
 	}
 
